@@ -56,17 +56,17 @@ impl <'a> Reader<'a> {
     }
 
     #[inline]
-    pub fn get_as<T : FromPointerReader<'a>>(&self) -> Result<T> {
+    pub fn get_as<T: FromPointerReader<'a>>(&self) -> Result<T> {
         FromPointerReader::get_from_pointer(&self.reader)
     }
 
-    pub fn get_as_capability<T : FromClientHook>(&self) -> Result<T> {
+    pub fn get_as_capability<T: FromClientHook>(&self) -> Result<T> {
         Ok(FromClientHook::new(try!(self.reader.get_capability())))
     }
 
     //# Used by RPC system to implement pipelining. Applications
     //# generally shouldn't use this directly.
-    pub fn get_pipelined_cap(&self, ops : &[PipelineOp]) -> Result<Box<ClientHook+Send>> {
+    pub fn get_pipelined_cap(&self, ops : &[PipelineOp]) -> Result<Box<ClientHook>> {
         let mut pointer = self.reader;
 
         for op in ops.iter() {
@@ -121,7 +121,7 @@ impl <'a> Builder<'a> {
     }
 
     // XXX value should be a user client.
-    pub fn set_as_capability(&self, value : Box<ClientHook+Send>) {
+    pub fn set_as_capability(&self, value : Box<ClientHook>) {
         self.builder.set_capability(value);
     }
 
@@ -146,12 +146,12 @@ impl <'a> FromPointerBuilder<'a> for Builder<'a> {
 }
 
 pub struct Pipeline {
-    hook : Box<PipelineHook+Send>,
-    ops : Vec<PipelineOp>,
+    hook: Box<PipelineHook>,
+    ops: Vec<PipelineOp>,
 }
 
 impl Pipeline {
-    pub fn new(hook : Box<PipelineHook+Send>) -> Pipeline {
+    pub fn new(hook: Box<PipelineHook>) -> Pipeline {
         Pipeline { hook : hook, ops : Vec::new() }
     }
 
@@ -159,7 +159,7 @@ impl Pipeline {
         Pipeline { hook : self.hook.copy(), ops : self.ops.clone() }
     }
 
-    pub fn get_pointer_field(&self, pointer_index : u16) -> Pipeline {
+    pub fn get_pointer_field(&self, pointer_index: u16) -> Pipeline {
         let mut new_ops = Vec::with_capacity(self.ops.len() + 1);
         for &op in self.ops.iter() {
             new_ops.push(op)
@@ -168,7 +168,7 @@ impl Pipeline {
         Pipeline { hook : self.hook.copy(), ops : new_ops }
     }
 
-    pub fn as_cap(&self) -> Box<ClientHook+Send> {
+    pub fn as_cap(&self) -> Box<ClientHook> {
         self.hook.get_pipelined_cap(self.ops.clone())
     }
 }

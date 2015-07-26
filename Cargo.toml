@@ -22,3 +22,11 @@ byteorder = "0.3.13"
 
 [dev-dependencies]
 quickcheck = "*"
+
+
+[features]
+rpc = ["gj"]
+
+[dependencies.gj]
+version = "*"
+optional = true

@@ -154,8 +154,8 @@ pub struct ReaderArena {
     raw_segments: &'static ReaderSegments,
     pub segment0: SegmentReader,
     pub more_segments: HashMap<SegmentId, Box<SegmentReader>>,
-    pub cap_table : Vec<Option<Box<ClientHook+Send>>>,
-    pub read_limiter : ::std::rc::Rc<ReadLimiter>,
+    pub cap_table: Vec<Option<Box<ClientHook>>>,
+    pub read_limiter: ::std::rc::Rc<ReadLimiter>,
 }
 
 impl ReaderArena {
@@ -210,7 +210,7 @@ impl ReaderArena {
     }
 
     #[inline]
-    pub fn init_cap_table(&mut self, cap_table : Vec<Option<Box<ClientHook+Send>>>) {
+    pub fn init_cap_table(&mut self, cap_table : Vec<Option<Box<ClientHook>>>) {
         self.cap_table = cap_table;
     }
 }
@@ -219,7 +219,7 @@ pub struct BuilderArena {
     allocator: &'static mut Allocator,
     pub segment0 : SegmentBuilder,
     pub more_segments : Vec<Box<SegmentBuilder>>,
-    pub cap_table : Vec<Option<Box<ClientHook+Send>>>,
+    pub cap_table : Vec<Option<Box<ClientHook>>>,
     pub dummy_limiter : ::std::rc::Rc<ReadLimiter>,
 }
 
@@ -314,11 +314,11 @@ impl BuilderArena  {
         }
     }
 
-    pub fn get_cap_table<'a>(&'a self) -> &'a [Option<Box<ClientHook+Send>>] {
+    pub fn get_cap_table<'a>(&'a self) -> &'a [Option<Box<ClientHook>>] {
         &self.cap_table
     }
 
-    pub fn inject_cap(&mut self, cap : Box<ClientHook+Send>) -> u32 {
+    pub fn inject_cap(&mut self, cap : Box<ClientHook>) -> u32 {
         self.cap_table.push(Some(cap));
         self.cap_table.len() as u32 - 1
     }
@@ -348,7 +348,7 @@ impl ArenaPtr {
         }
     }
 
-    pub fn extract_cap(&self, index: usize) -> Option<Box<ClientHook+Send>> {
+    pub fn extract_cap(&self, index: usize) -> Option<Box<ClientHook>> {
         unsafe {
             match self {
                 &ArenaPtr::Reader(reader) => {

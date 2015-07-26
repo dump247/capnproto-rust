@@ -146,7 +146,7 @@ impl <S> Reader<S> where S: ReaderSegments {
         try!(self.get_root_internal()).get_as()
     }
 
-    pub fn init_cap_table(&mut self, cap_table : Vec<Option<Box<ClientHook+Send>>>) {
+    pub fn init_cap_table(&mut self, cap_table : Vec<Option<Box<ClientHook>>>) {
         self.arena.init_cap_table(cap_table);
     }
 
@@ -231,7 +231,7 @@ impl <A> Builder<A> where A: Allocator {
         self.arena.get_segments_for_output()
     }
 
-    pub fn get_cap_table<'a>(&'a self) -> &'a [Option<Box<ClientHook+Send>>] {
+    pub fn get_cap_table<'a>(&'a self) -> &'a [Option<Box<ClientHook>>] {
         self.arena.get_cap_table()
     }
 }

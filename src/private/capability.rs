@@ -21,40 +21,40 @@
 
 use any_pointer;
 use MessageSize;
-use capability::{CallContext, Request, ResultFuture, Server};
+use capability::{CallContext, Request, RemotePromise, Server};
 
-pub trait ResponseHook:Send + ::std::any::Any {
+pub trait ResponseHook: ::std::any::Any {
     fn get<'a>(&'a mut self) -> any_pointer::Reader<'a>;
 }
 
 pub trait RequestHook {
     fn message<'a>(&'a mut self) -> &'a mut ::message::Builder<::message::HeapAllocator>;
-    fn send<'a>(self : Box<Self>) -> ResultFuture<any_pointer::Owned>;
+    fn send<'a>(self : Box<Self>) -> RemotePromise<any_pointer::Owned>;
 }
 
-pub trait ClientHook : Send + ::std::any::Any {
-    fn copy(&self) -> Box<ClientHook+Send>;
+pub trait ClientHook: ::std::any::Any {
+    fn copy(&self) -> Box<ClientHook>;
     fn new_call(&self,
                 interface_id : u64,
                 method_id : u16,
                 size_hint : Option<MessageSize>)
                 -> Request<any_pointer::Owned, any_pointer::Owned>;
-    fn call(&self, interface_id : u64, method_id : u16, context : Box<CallContextHook+Send>);
+    fn call(&self, interface_id : u64, method_id : u16, context : Box<CallContextHook>);
 
     // HACK
     fn get_descriptor(&self) -> Box<::std::any::Any>;
 }
 
 pub trait ServerHook : 'static {
-    fn new_client(server : Box<Server+Send>) -> Client;
+    fn new_client(server : Box<Server>) -> Client;
 }
 
 pub struct Client {
-    pub hook : Box<ClientHook+Send>
+    pub hook : Box<ClientHook>
 }
 
 impl Client {
-    pub fn new(hook : Box<ClientHook+Send>) -> Client {
+    pub fn new(hook : Box<ClientHook>) -> Client {
         Client { hook : hook }
     }
 
@@ -83,8 +83,8 @@ pub fn internal_get_typed_context<Params, Results>(
 
 
 pub trait PipelineHook {
-    fn copy(&self) -> Box<PipelineHook+Send>;
-    fn get_pipelined_cap(&self, ops : Vec<PipelineOp>) -> Box<ClientHook+Send>;
+    fn copy(&self) -> Box<PipelineHook>;
+    fn get_pipelined_cap(&self, ops : Vec<PipelineOp>) -> Box<ClientHook>;
 }
 
 #[derive(Clone, Copy)]

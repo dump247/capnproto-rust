@@ -1347,7 +1347,7 @@ mod wire_helpers {
 
     pub unsafe fn set_capability_pointer(segment : *mut SegmentBuilder,
                                          reff : *mut WirePointer,
-                                         cap : Box<ClientHook+Send>) {
+                                         cap : Box<ClientHook>) {
         (*reff).set_cap((*(*segment).get_arena()).inject_cap(cap));
     }
 
@@ -1597,7 +1597,7 @@ mod wire_helpers {
     #[inline]
     pub unsafe fn read_capability_pointer(segment : *const SegmentReader,
                                           reff : *const WirePointer,
-                                          _nesting_limit : i32) -> Result<Box<ClientHook+Send>> {
+                                          _nesting_limit : i32) -> Result<Box<ClientHook>> {
         if (*reff).is_null() {
             panic!("broken cap factory is unimplemented");
         } else if !(*reff).is_capability() {
@@ -1922,7 +1922,7 @@ impl <'a> PointerReader<'a> {
         }
     }
 
-    pub fn get_capability(&self) -> Result<Box<ClientHook+Send>> {
+    pub fn get_capability(&self) -> Result<Box<ClientHook>> {
         let reff : *const WirePointer = if self.pointer.is_null() { zero_pointer() } else { self.pointer };
         unsafe {
             wire_helpers::read_capability_pointer(self.segment, reff, self.nesting_limit)
@@ -1994,7 +1994,7 @@ impl <'a> PointerBuilder<'a> {
         }
     }
 
-    pub fn get_capability(&self) -> Result<Box<ClientHook+Send>> {
+    pub fn get_capability(&self) -> Result<Box<ClientHook>> {
         unsafe {
             wire_helpers::read_capability_pointer(
                 &(*self.segment).reader, self.pointer, ::std::i32::MAX)
@@ -2060,7 +2060,7 @@ impl <'a> PointerBuilder<'a> {
         }
     }
 
-    pub fn set_capability(&self, cap : Box<ClientHook+Send>) {
+    pub fn set_capability(&self, cap : Box<ClientHook>) {
         unsafe {
             wire_helpers::set_capability_pointer(self.segment, self.pointer, cap);
         }

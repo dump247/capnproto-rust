@@ -26,29 +26,32 @@
 use any_pointer;
 use private::capability::{CallContextHook, ClientHook, RequestHook, ResponseHook};
 
-pub struct ResultFuture<Results> where Results: ::traits::Pipelined {
-    pub answer_port: ::std::sync::mpsc::Receiver<Box<ResponseHook+Send>>,
-    pub answer_result: Result<Box<ResponseHook+Send>, ()>,
+
+pub struct RemotePromise<Results> where Results: ::traits::Pipelined {
+    #[cfg(feature = "rpc")]
+    pub answer_promise: ::gj::Promise<Box<ResponseHook>, ::Error>,
     pub pipeline: Results::Pipeline,
 }
 
 pub struct Request<Params, Results> {
-    pub marker : ::std::marker::PhantomData<(Params, Results)>,
-    pub hook : Box<RequestHook+Send>
+    pub marker: ::std::marker::PhantomData<(Params, Results)>,
+    pub hook: Box<RequestHook>
 }
 
 impl <Params, Results> Request <Params, Results> {
-    pub fn new(hook : Box<RequestHook+Send>) -> Request <Params, Results> {
-        Request { hook : hook, marker: ::std::marker::PhantomData }
+    pub fn new(hook: Box<RequestHook>) -> Request <Params, Results> {
+        Request { hook: hook, marker: ::std::marker::PhantomData }
     }
 }
+
+#[cfg(feature = "rpc")]
 impl <Params, Results> Request <Params, Results>
 where Results: ::traits::Pipelined,
       <Results as ::traits::Pipelined>::Pipeline: FromTypelessPipeline
 {
-    pub fn send(self) -> ResultFuture<Results> {
-        let ResultFuture {answer_port, answer_result, pipeline, ..} = self.hook.send();
-        ResultFuture { answer_port : answer_port, answer_result : answer_result,
+    pub fn send(self) -> RemotePromise<Results> {
+        let RemotePromise {answer_promise, pipeline, ..} = self.hook.send();
+        RemotePromise { answer_promise : answer_promise,
                         pipeline : FromTypelessPipeline::new(pipeline)
                       }
     }
@@ -56,7 +59,7 @@ where Results: ::traits::Pipelined,
 
 pub struct CallContext<Params, Results> {
     pub marker: ::std::marker::PhantomData<(Params, Results)>,
-    pub hook: Box<CallContextHook+Send>,
+    pub hook: Box<CallContextHook>,
 }
 
 impl <Params, Results> CallContext<Params, Results> {
@@ -79,7 +82,7 @@ pub trait FromTypelessPipeline {
 }
 
 pub trait FromClientHook {
-    fn new(Box<ClientHook+Send>) -> Self;
+    fn new(Box<ClientHook>) -> Self;
 }
 
 pub trait Server {
