@@ -72,11 +72,11 @@ impl <'a> Builder<'a> {
 
     pub fn set(&mut self, index : u32, value : ::text::Reader) {
         assert!(index < self.len());
-        self.builder.get_pointer_element(index).set_text(value);
+        self.builder.borrow().get_pointer_element(index).set_text(value);
     }
 
     pub fn borrow<'b>(&'b mut self) -> Builder<'b> {
-        Builder {builder : self.builder}
+        Builder::<'b> {builder : self.builder.borrow()}
     }
 }
 

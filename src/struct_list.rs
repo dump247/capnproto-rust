@@ -107,7 +107,7 @@ impl <'a, T> Builder<'a, T> where T: for<'b> ::traits::OwnedStruct<'b> {
 
 impl <'a, T> Builder<'a, T> where T: for<'b> ::traits::OwnedStruct<'b> {
     pub fn borrow<'b>(&'b mut self) -> Builder<'b, T> {
-        Builder {builder : self.builder, marker : ::std::marker::PhantomData}
+        Builder {builder : self.builder.borrow(), marker : ::std::marker::PhantomData}
     }
 }
 

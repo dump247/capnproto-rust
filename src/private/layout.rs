@@ -787,6 +787,7 @@ mod wire_helpers {
     #[inline]
     pub unsafe fn init_struct_pointer<'a>(mut reff : *mut WirePointer,
                                           mut segment_builder : *mut SegmentBuilder,
+                                          cap_table: CapTableBuilder<'a>,
                                           size : StructSize) -> StructBuilder<'a> {
         let ptr : *mut Word = allocate(&mut reff, &mut segment_builder, size.total(), WirePointerKind::Struct);
         (*reff).mut_struct_ref().set_from_struct_size(size);
@@ -794,6 +795,7 @@ mod wire_helpers {
         StructBuilder {
             marker : ::std::marker::PhantomData::<&'a ()>,
             segment : segment_builder,
+            cap_table: cap_table,
             data : ::std::mem::transmute(ptr),
             pointers : ::std::mem::transmute(
                     ptr.offset((size.data as usize) as isize)),
@@ -805,6 +807,7 @@ mod wire_helpers {
     #[inline]
     pub unsafe fn get_writable_struct_pointer<'a>(mut reff : *mut WirePointer,
                                                   mut segment : *mut SegmentBuilder,
+                                                  cap_table: CapTableBuilder<'a>,
                                                   size : StructSize,
                                                   default_value : *const Word) -> Result<StructBuilder<'a>> {
         let ref_target = (*reff).mut_target();
@@ -812,7 +815,7 @@ mod wire_helpers {
         if (*reff).is_null() {
             if default_value.is_null() ||
                 (*::std::mem::transmute::<*const Word,*const WirePointer>(default_value)).is_null() {
-                    return Ok(init_struct_pointer(reff, segment, size));
+                    return Ok(init_struct_pointer(reff, segment, cap_table, size));
                 }
             unimplemented!()
         }
@@ -863,6 +866,7 @@ mod wire_helpers {
             Ok(StructBuilder {
                 marker : ::std::marker::PhantomData::<&'a ()>,
                 segment : segment,
+                cap_table: cap_table,
                 data : ::std::mem::transmute(ptr),
                 pointers : new_pointer_section,
                 data_size : new_data_size as u32 * BITS_PER_WORD as u32,
@@ -872,6 +876,7 @@ mod wire_helpers {
             Ok(StructBuilder {
                 marker : ::std::marker::PhantomData::<&'a ()>,
                 segment : old_segment,
+                cap_table: cap_table,
                 data : ::std::mem::transmute(old_ptr),
                 pointers : old_pointer_section,
                 data_size : old_data_size as u32 * BITS_PER_WORD as u32,
@@ -883,6 +888,7 @@ mod wire_helpers {
     #[inline]
     pub unsafe fn init_list_pointer<'a>(mut reff : *mut WirePointer,
                                         mut segment_builder : *mut SegmentBuilder,
+                                        cap_table: CapTableBuilder<'a>,
                                         element_count : ElementCount32,
                                         element_size : ElementSize) -> ListBuilder<'a> {
         assert!(element_size != InlineComposite,
@@ -897,8 +903,9 @@ mod wire_helpers {
         (*reff).mut_list_ref().set(element_size, element_count);
 
         ListBuilder {
-            marker : ::std::marker::PhantomData::<&'a ()>,
+            marker : ::std::marker::PhantomData::<&'a mut ()>,
             segment : segment_builder,
+            cap_table: cap_table,
             ptr : ::std::mem::transmute(ptr),
             step : step,
             element_count : element_count,
@@ -910,6 +917,7 @@ mod wire_helpers {
     #[inline]
     pub unsafe fn init_struct_list_pointer<'a>(mut reff : *mut WirePointer,
                                                mut segment_builder : *mut SegmentBuilder,
+                                               cap_table: CapTableBuilder<'a>,
                                                element_count : ElementCount32,
                                                element_size : StructSize) -> ListBuilder<'a> {
         let words_per_element = element_size.total();
@@ -928,8 +936,9 @@ mod wire_helpers {
         let ptr1 = ptr.offset(POINTER_SIZE_IN_WORDS as isize);
 
         ListBuilder {
-            marker : ::std::marker::PhantomData::<&'a ()>,
+            marker : ::std::marker::PhantomData::<&'a mut ()>,
             segment : segment_builder,
+            cap_table: cap_table,
             ptr : ::std::mem::transmute(ptr1),
             step : words_per_element * BITS_PER_WORD as u32,
             element_count : element_count,
@@ -941,6 +950,7 @@ mod wire_helpers {
     #[inline]
     pub unsafe fn get_writable_list_pointer<'a>(orig_ref : *mut WirePointer,
                                                 orig_segment : *mut SegmentBuilder,
+                                                cap_table: CapTableBuilder<'a>,
                                                 element_size : ElementSize,
                                                 default_value : *const Word) -> Result<ListBuilder<'a>> {
         assert!(element_size != InlineComposite,
@@ -1019,8 +1029,9 @@ mod wire_helpers {
             // OK, looks valid.
 
             Ok(ListBuilder {
-                marker : ::std::marker::PhantomData::<&'a ()>,
+                marker : ::std::marker::PhantomData::<&'a mut ()>,
                 segment : segment,
+                cap_table: cap_table,
                 ptr : ::std::mem::transmute(ptr),
                 element_count : (*tag).inline_composite_list_element_count(),
                 step : (*tag).struct_ref().word_size() * BITS_PER_WORD as u32,
@@ -1040,8 +1051,9 @@ mod wire_helpers {
             let step = data_size + pointer_count * BITS_PER_POINTER as u32;
 
             Ok(ListBuilder {
-                marker : ::std::marker::PhantomData::<&'a ()>,
+                marker : ::std::marker::PhantomData::<&'a mut ()>,
                 segment : segment,
+                cap_table: cap_table,
                 ptr : ::std::mem::transmute(ptr),
                 step : step,
                 element_count : (*reff).list_ref().element_count(),
@@ -1054,6 +1066,7 @@ mod wire_helpers {
     #[inline]
     pub unsafe fn get_writable_struct_list_pointer<'a>(orig_ref : *mut WirePointer,
                                                        orig_segment : *mut SegmentBuilder,
+                                                       cap_table: CapTableBuilder<'a>,
                                                        element_size : StructSize,
                                                        default_value : *const Word) -> Result<ListBuilder<'a>> {
         let orig_ref_target = (*orig_ref).mut_target();
@@ -1098,8 +1111,9 @@ mod wire_helpers {
             if old_data_size >= element_size.data && old_pointer_count >= element_size.pointers {
                 // Old size is at least as large as we need. Ship it.
                 return Ok(ListBuilder {
-                    marker : ::std::marker::PhantomData::<&'a ()>,
+                    marker : ::std::marker::PhantomData::<&'a mut ()>,
                     segment : old_segment,
+                    cap_table: cap_table,
                     ptr : ::std::mem::transmute(old_ptr),
                     element_count : element_count,
                     step : old_step * BITS_PER_WORD as u32,
@@ -1122,7 +1136,7 @@ mod wire_helpers {
 
             if old_size == ElementSize::Void {
                 // Nothing to copy, just allocate a new list.
-                return Ok(init_struct_list_pointer(orig_ref, orig_segment, element_count, element_size));
+                return Ok(init_struct_list_pointer(orig_ref, orig_segment, cap_table, element_count, element_size));
             } else {
                 // Upgrade to an inline composite list.
 
@@ -1184,8 +1198,9 @@ mod wire_helpers {
 
 
                 return Ok(ListBuilder {
-                    marker : ::std::marker::PhantomData::<&'a ()>,
+                    marker : ::std::marker::PhantomData::<&'a mut ()>,
                     segment : new_segment,
+                    cap_table: cap_table,
                     ptr : ::std::mem::transmute(new_ptr),
                     element_count : element_count,
                     step : new_step * BITS_PER_WORD as u32,
@@ -1321,6 +1336,7 @@ mod wire_helpers {
     }
 
     pub unsafe fn set_struct_pointer<'a>(mut segment : *mut SegmentBuilder,
+                                         cap_table: CapTableBuilder,
                                          mut reff : *mut WirePointer,
                                          value : StructReader) -> Result<SegmentAnd<*mut Word>> {
         let data_size : WordCount32 = round_bits_up_to_words(value.data_size as u64);
@@ -1338,7 +1354,8 @@ mod wire_helpers {
 
         let pointer_section : *mut WirePointer = ::std::mem::transmute(ptr.offset(data_size as isize));
         for i in 0..value.pointer_count as isize {
-            try!(copy_pointer(segment, pointer_section.offset(i), value.segment, value.pointers.offset(i),
+            try!(copy_pointer(segment, cap_table, pointer_section.offset(i),
+                              value.segment, value.cap_table, value.pointers.offset(i),
                               value.nesting_limit));
         }
 
@@ -1346,12 +1363,15 @@ mod wire_helpers {
     }
 
     pub unsafe fn set_capability_pointer(segment : *mut SegmentBuilder,
+                                         cap_table: CapTableBuilder,
                                          reff : *mut WirePointer,
                                          cap : Box<ClientHook>) {
-        (*reff).set_cap((*(*segment).get_arena()).inject_cap(cap));
+        // TODO if ref is null, zero object.
+        (*reff).set_cap(cap_table.inject_cap(cap) as u32);
     }
 
     pub unsafe fn set_list_pointer<'a>(mut segment : *mut SegmentBuilder,
+                                       cap_table: CapTableBuilder,
                                        mut reff : *mut WirePointer,
                                        value : ListReader) -> Result<SegmentAnd<*mut Word>> {
         let total_size = round_bits_up_to_words((value.element_count * value.step) as u64);
@@ -1364,8 +1384,9 @@ mod wire_helpers {
                 //# List of pointers.
                 (*reff).mut_list_ref().set(Pointer, value.element_count);
                 for i in 0.. value.element_count as isize {
-                    try!(copy_pointer(segment, ::std::mem::transmute::<*mut Word,*mut WirePointer>(ptr).offset(i),
-                                      value.segment,
+                    try!(copy_pointer(segment, cap_table,
+                                      ::std::mem::transmute::<*mut Word,*mut WirePointer>(ptr).offset(i),
+                                      value.segment, value.cap_table,
                                       ::std::mem::transmute::<*const u8,*const WirePointer>(value.ptr).offset(i),
                                       value.nesting_limit));
                 }
@@ -1409,8 +1430,9 @@ mod wire_helpers {
                 src = src.offset(data_size as isize);
 
                 for _ in 0..pointer_count {
-                    try!(copy_pointer(segment, ::std::mem::transmute(dst),
-                                      value.segment, ::std::mem::transmute(src), value.nesting_limit));
+                    try!(copy_pointer(segment, cap_table, ::std::mem::transmute(dst),
+                                      value.segment, value.cap_table, ::std::mem::transmute(src),
+                                      value.nesting_limit));
                     dst = dst.offset(POINTER_SIZE_IN_WORDS as isize);
                     src = src.offset(POINTER_SIZE_IN_WORDS as isize);
                 }
@@ -1419,8 +1441,10 @@ mod wire_helpers {
         }
     }
 
-    pub unsafe fn copy_pointer(dst_segment : *mut SegmentBuilder, dst : *mut WirePointer,
-                               mut src_segment : *const SegmentReader, mut src : *const WirePointer,
+    pub unsafe fn copy_pointer(dst_segment: *mut SegmentBuilder, dst_cap_table: CapTableBuilder,
+                               dst: *mut WirePointer,
+                               mut src_segment : *const SegmentReader, src_cap_table: CapTableReader,
+                               mut src: *const WirePointer,
                                nesting_limit : i32) -> Result<SegmentAnd<*mut Word>> {
         let src_target = (*src).target();
 
@@ -1442,10 +1466,11 @@ mod wire_helpers {
                      WirePointerKind::Struct));
 
                 return set_struct_pointer(
-                    dst_segment, dst,
+                    dst_segment, dst_cap_table, dst,
                     StructReader {
                         marker : ::std::marker::PhantomData,
                         segment : src_segment,
+                        cap_table: src_cap_table,
                         data : ::std::mem::transmute(ptr),
                         pointers : ::std::mem::transmute(ptr.offset((*src).struct_ref().data_size.get() as isize)),
                         data_size : (*src).struct_ref().data_size.get() as u32 * BITS_PER_WORD as u32,
@@ -1488,10 +1513,11 @@ mod wire_helpers {
                     }
 
                     return set_list_pointer(
-                        dst_segment, dst,
+                        dst_segment, dst_cap_table, dst,
                         ListReader {
                             marker : ::std::marker::PhantomData,
-                            segment : src_segment,
+                            segment: src_segment,
+                            cap_table: src_cap_table,
                             ptr : ::std::mem::transmute(ptr),
                             element_count : element_count,
                             step : words_per_element * BITS_PER_WORD as u32,
@@ -1515,10 +1541,11 @@ mod wire_helpers {
                     }
 
                     return set_list_pointer(
-                        dst_segment, dst,
+                        dst_segment, dst_cap_table, dst,
                         ListReader {
                             marker : ::std::marker::PhantomData,
                             segment : src_segment,
+                            cap_table : src_cap_table,
                             ptr : ::std::mem::transmute(ptr),
                             element_count : element_count,
                             step : step,
@@ -1537,7 +1564,7 @@ mod wire_helpers {
                 }
                 match (*src_segment).arena.extract_cap((*src).cap_ref().index.get() as usize) {
                     Some(cap) => {
-                        set_capability_pointer(dst_segment, dst, cap);
+                        set_capability_pointer(dst_segment, dst_cap_table, dst, cap);
                         return Ok(SegmentAnd { segment : dst_segment, value : ::std::ptr::null_mut() });
                     }
                     None => {
@@ -1551,6 +1578,7 @@ mod wire_helpers {
 
     #[inline]
     pub unsafe fn read_struct_pointer<'a>(mut segment: *const SegmentReader,
+                                          cap_table: CapTableReader<'a>,
                                           mut reff : *const WirePointer,
                                           default_value : *const Word,
                                           nesting_limit : i32) -> Result<StructReader<'a>> {
@@ -1586,6 +1614,7 @@ mod wire_helpers {
         return Ok(StructReader {
             marker : ::std::marker::PhantomData::<&'a ()>,
             segment : segment,
+            cap_table: cap_table,
             data : ::std::mem::transmute(ptr),
             pointers : ::std::mem::transmute(ptr.offset(data_size_words as isize)),
             data_size : data_size_words as u32 * BITS_PER_WORD as BitCount32,
@@ -1595,8 +1624,9 @@ mod wire_helpers {
      }
 
     #[inline]
-    pub unsafe fn read_capability_pointer(segment : *const SegmentReader,
-                                          reff : *const WirePointer,
+    pub unsafe fn read_capability_pointer(segment: *const SegmentReader,
+                                          cap_table: CapTableReader,
+                                          reff: *const WirePointer,
                                           _nesting_limit : i32) -> Result<Box<ClientHook>> {
         if (*reff).is_null() {
             panic!("broken cap factory is unimplemented");
@@ -1605,7 +1635,7 @@ mod wire_helpers {
                 "Message contains non-capability pointer where capability pointer was expected.", None));
         } else {
             let n = (*reff).cap_ref().index.get() as usize;
-            match (*segment).arena.extract_cap(n) {
+            match cap_table.extract_cap(n) {
                 Some(client_hook) => { Ok(client_hook) }
                 None => {
                     Err(Error::new_decode_error(
@@ -1617,10 +1647,11 @@ mod wire_helpers {
 
     #[inline]
     pub unsafe fn read_list_pointer<'a>(mut segment: *const SegmentReader,
-                                      mut reff : *const WirePointer,
-                                      default_value : *const Word,
-                                      expected_element_size : ElementSize,
-                                      nesting_limit : i32) -> Result<ListReader<'a>> {
+                                        cap_table: CapTableReader<'a>,
+                                        mut reff : *const WirePointer,
+                                        default_value : *const Word,
+                                        expected_element_size : ElementSize,
+                                        nesting_limit : i32) -> Result<ListReader<'a>> {
         let ref_target : *const Word = (*reff).target();
 
         if (*reff).is_null() {
@@ -1711,6 +1742,7 @@ mod wire_helpers {
                 return Ok(ListReader {
                     marker : ::std::marker::PhantomData::<&'a ()>,
                     segment : segment,
+                    cap_table: cap_table,
                     ptr : ::std::mem::transmute(ptr),
                     element_count : size,
                     step : words_per_element * BITS_PER_WORD as u32,
@@ -1754,6 +1786,7 @@ mod wire_helpers {
                 return Ok(ListReader {
                     marker : ::std::marker::PhantomData::<&'a ()>,
                     segment : segment,
+                    cap_table: cap_table,
                     ptr : ::std::mem::transmute(ptr),
                     element_count : list_ref.element_count(),
                     step : step,
@@ -1847,12 +1880,66 @@ mod wire_helpers {
 static ZERO : u64 = 0;
 fn zero_pointer() -> *const WirePointer { unsafe {::std::mem::transmute(&ZERO)}}
 
+#[derive(Copy, Clone)]
+pub enum CapTableReader<'a> {
+    Dummy,
+    Plain(&'a Vec<Option<Box<ClientHook>>>),
+}
+
+impl <'a> CapTableReader <'a> {
+    pub fn extract_cap(&self, index: usize) -> Option<Box<ClientHook>> {
+        match self {
+            &CapTableReader::Dummy => None,
+            _ => unimplemented!(),
+        }
+    }
+}
+
+pub enum CapTableBuilder<'a> {
+    Dummy,
+    Plain(&'a mut Vec<Option<Box<ClientHook>>>),
+}
+
+impl <'a> CapTableBuilder<'a> {
+    pub fn as_reader(self) -> CapTableReader<'a> {
+        match self {
+            CapTableBuilder::Dummy => CapTableReader::Dummy,
+            CapTableBuilder::Plain(ref hooks) => CapTableReader::Plain(hooks),
+        }
+    }
+
+    pub fn borrow<'b>(&'b self) -> CapTableBuilder<'b> {
+        match self {
+            &CapTableBuilder::Dummy => CapTableBuilder::Dummy,
+            &CapTableBuilder::Plain(hooks) => CapTableBuilder::Plain(hooks),
+        }
+    }
+
+    pub fn extract_cap(&self, index: usize) -> Option<Box<ClientHook>> {
+        match self {
+            &CapTableBuilder::Dummy => None,
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn inject_cap(&mut self, _cap: Box<ClientHook>) -> usize {
+        unimplemented!()
+
+    }
+
+    pub fn drop_cap(&mut self, _index: usize) {
+        unimplemented!()
+    }
+}
+
+
 #[derive(Clone, Copy)]
 pub struct PointerReader<'a> {
-    marker : ::std::marker::PhantomData<&'a ()>,
-    segment : *const SegmentReader,
-    pointer : *const WirePointer,
-    nesting_limit : i32
+    marker: ::std::marker::PhantomData<&'a ()>,
+    segment: *const SegmentReader,
+    cap_table: CapTableReader<'a>,
+    pointer: *const WirePointer,
+    nesting_limit: i32
 }
 
 impl <'a> PointerReader<'a> {
@@ -1860,6 +1947,7 @@ impl <'a> PointerReader<'a> {
         PointerReader {
             marker : ::std::marker::PhantomData::<&'b ()>,
             segment : ::std::ptr::null(),
+            cap_table: CapTableReader::Dummy,
             pointer : ::std::ptr::null(),
             nesting_limit : 0x7fffffff }
     }
@@ -1872,10 +1960,11 @@ impl <'a> PointerReader<'a> {
                                             WirePointerKind::Struct));
 
             Ok(PointerReader {
-                marker : ::std::marker::PhantomData::<&'b ()>,
-                segment : segment,
-                pointer : ::std::mem::transmute(location),
-                nesting_limit : nesting_limit })
+                marker: ::std::marker::PhantomData::<&'b ()>,
+                segment: segment,
+                cap_table: CapTableReader::Dummy,
+                pointer: ::std::mem::transmute(location),
+                nesting_limit: nesting_limit })
         }
     }
 
@@ -1883,6 +1972,7 @@ impl <'a> PointerReader<'a> {
         PointerReader {
             marker : ::std::marker::PhantomData::<&'b ()>,
             segment : ::std::ptr::null(),
+            cap_table: CapTableReader::Dummy,
             pointer : unsafe { ::std::mem::transmute(location) },
             nesting_limit : 0x7fffffff }
     }
@@ -1894,7 +1984,7 @@ impl <'a> PointerReader<'a> {
     pub fn get_struct(&self, default_value: *const Word) -> Result<StructReader<'a>> {
         let reff : *const WirePointer = if self.pointer.is_null() { zero_pointer() } else { self.pointer };
         unsafe {
-            wire_helpers::read_struct_pointer(self.segment, reff,
+            wire_helpers::read_struct_pointer(self.segment, self.cap_table, reff,
                                              default_value, self.nesting_limit)
         }
     }
@@ -1904,6 +1994,7 @@ impl <'a> PointerReader<'a> {
         let reff = if self.pointer.is_null() { zero_pointer() } else { self.pointer };
         unsafe {
             wire_helpers::read_list_pointer(self.segment,
+                                            self.cap_table,
                                            reff,
                                            default_value,
                                            expected_element_size, self.nesting_limit)
@@ -1925,7 +2016,7 @@ impl <'a> PointerReader<'a> {
     pub fn get_capability(&self) -> Result<Box<ClientHook>> {
         let reff : *const WirePointer = if self.pointer.is_null() { zero_pointer() } else { self.pointer };
         unsafe {
-            wire_helpers::read_capability_pointer(self.segment, reff, self.nesting_limit)
+            wire_helpers::read_capability_pointer(self.segment, self.cap_table, reff, self.nesting_limit)
         }
     }
 
@@ -1939,6 +2030,7 @@ impl <'a> PointerReader<'a> {
 pub struct PointerBuilder<'a> {
     marker : ::std::marker::PhantomData<&'a ()>,
     segment : *mut SegmentBuilder,
+    cap_table: CapTableBuilder<'a>,
     pointer : *mut WirePointer
 }
 
@@ -1948,6 +2040,7 @@ impl <'a> PointerBuilder<'a> {
     pub fn get_root(segment : *mut SegmentBuilder, location : *mut Word) -> PointerBuilder<'a> {
         PointerBuilder {
             marker : ::std::marker::PhantomData::<&'a ()>,
+            cap_table: CapTableBuilder::Dummy,
             segment : segment, pointer : unsafe { ::std::mem::transmute(location) }}
     }
 
@@ -1960,6 +2053,7 @@ impl <'a> PointerBuilder<'a> {
             wire_helpers::get_writable_struct_pointer(
                 self.pointer,
                 self.segment,
+                self.cap_table,
                 size,
                 default_value)
         }
@@ -1968,7 +2062,7 @@ impl <'a> PointerBuilder<'a> {
     pub fn get_list(&self, element_size : ElementSize, default_value : *const Word) -> Result<ListBuilder<'a>> {
         unsafe {
             wire_helpers::get_writable_list_pointer(
-                self.pointer, self.segment, element_size, default_value)
+                self.pointer, self.segment, self.cap_table, element_size, default_value)
         }
     }
 
@@ -1976,7 +2070,7 @@ impl <'a> PointerBuilder<'a> {
                            default_value : *const Word) -> Result<ListBuilder<'a>> {
         unsafe {
             wire_helpers::get_writable_struct_list_pointer(
-                self.pointer, self.segment, element_size, default_value)
+                self.pointer, self.segment, self.cap_table, element_size, default_value)
         }
     }
 
@@ -1997,20 +2091,20 @@ impl <'a> PointerBuilder<'a> {
     pub fn get_capability(&self) -> Result<Box<ClientHook>> {
         unsafe {
             wire_helpers::read_capability_pointer(
-                &(*self.segment).reader, self.pointer, ::std::i32::MAX)
+                &(*self.segment).reader, self.cap_table.as_reader(), self.pointer, ::std::i32::MAX)
         }
     }
 
     pub fn init_struct(&self, size : StructSize) -> StructBuilder<'a> {
         unsafe {
-            wire_helpers::init_struct_pointer(self.pointer, self.segment, size)
+            wire_helpers::init_struct_pointer(self.pointer, self.segment, self.cap_table, size)
         }
     }
 
     pub fn init_list(&self, element_size : ElementSize, element_count : ElementCount32) -> ListBuilder<'a> {
         unsafe {
             wire_helpers::init_list_pointer(
-                self.pointer, self.segment, element_count, element_size)
+                self.pointer, self.segment, self.cap_table, element_count, element_size)
         }
     }
 
@@ -2018,7 +2112,7 @@ impl <'a> PointerBuilder<'a> {
                             -> ListBuilder<'a> {
         unsafe {
             wire_helpers::init_struct_list_pointer(
-                self.pointer, self.segment, element_count, element_size)
+                self.pointer, self.segment, self.cap_table, element_count, element_size)
         }
     }
 
@@ -2036,14 +2130,14 @@ impl <'a> PointerBuilder<'a> {
 
     pub fn set_struct(&self, value : &StructReader) -> Result<()> {
         unsafe {
-            try!(wire_helpers::set_struct_pointer(self.segment, self.pointer, *value));
+            try!(wire_helpers::set_struct_pointer(self.segment, self.cap_table, self.pointer, *value));
             Ok(())
         }
     }
 
     pub fn set_list(&self, value : &ListReader) -> Result<()> {
         unsafe {
-            try!(wire_helpers::set_list_pointer(self.segment, self.pointer, *value));
+            try!(wire_helpers::set_list_pointer(self.segment, self.cap_table, self.pointer, *value));
             Ok(())
         }
     }
@@ -2062,7 +2156,7 @@ impl <'a> PointerBuilder<'a> {
 
     pub fn set_capability(&self, cap : Box<ClientHook>) {
         unsafe {
-            wire_helpers::set_capability_pointer(self.segment, self.pointer, cap);
+            wire_helpers::set_capability_pointer(self.segment, self.cap_table, self.pointer, cap);
         }
     }
 
@@ -2076,7 +2170,8 @@ impl <'a> PointerBuilder<'a> {
             }
         } else {
             unsafe {
-                try!(wire_helpers::copy_pointer(self.segment, self.pointer, other.segment, other.pointer,
+                try!(wire_helpers::copy_pointer(self.segment, self.cap_table, self.pointer,
+                                                other.segment, other.cap_table, other.pointer,
                                                 other.nesting_limit));
             }
         }
@@ -2090,12 +2185,13 @@ impl <'a> PointerBuilder<'a> {
         }
     }
 
-    pub fn as_reader(&self) -> PointerReader<'a> {
+    pub fn as_reader(self) -> PointerReader<'a> {
         unsafe {
             let segment_reader = &(*self.segment).reader;
             PointerReader {
                 marker : ::std::marker::PhantomData::<&'a ()>,
-                segment : segment_reader,
+                segment: segment_reader,
+                cap_table: self.cap_table.as_reader(),
                 pointer : self.pointer,
                 nesting_limit : 0x7fffffff }
         }
@@ -2105,7 +2201,8 @@ impl <'a> PointerBuilder<'a> {
 #[derive(Clone, Copy)]
 pub struct StructReader<'a> {
     marker : ::std::marker::PhantomData<&'a ()>,
-    segment : *const SegmentReader,
+    segment: *const SegmentReader,
+    cap_table: CapTableReader<'a>,
     data : *const u8,
     pointers : *const WirePointer,
     data_size : BitCount32,
@@ -2119,6 +2216,7 @@ impl <'a> StructReader<'a>  {
         StructReader {
             marker : ::std::marker::PhantomData::<&'b ()>,
             segment : ::std::ptr::null(),
+            cap_table: CapTableReader::Dummy,
             data : ::std::ptr::null(),
             pointers : ::std::ptr::null(), data_size : 0, pointer_count : 0,
             nesting_limit : 0x7fffffff}
@@ -2178,6 +2276,7 @@ impl <'a> StructReader<'a>  {
             PointerReader {
                 marker : ::std::marker::PhantomData::<&'a ()>,
                 segment : self.segment,
+                cap_table: self.cap_table,
                 pointer : unsafe { self.pointers.offset(ptr_index as isize) },
                 nesting_limit : self.nesting_limit
             }
@@ -2205,10 +2304,10 @@ impl <'a> StructReader<'a>  {
     }
 }
 
-#[derive(Clone, Copy)]
 pub struct StructBuilder<'a> {
     marker : ::std::marker::PhantomData<&'a ()>,
     segment : *mut SegmentBuilder,
+    cap_table: CapTableBuilder<'a>,
     data : *mut u8,
     pointers : *mut WirePointer,
     data_size : BitCount32,
@@ -2216,12 +2315,13 @@ pub struct StructBuilder<'a> {
 }
 
 impl <'a> StructBuilder<'a> {
-    pub fn as_reader(&self) -> StructReader<'a> {
+    pub fn as_reader(self) -> StructReader<'a> {
         unsafe {
             let segment_reader = &(*self.segment).reader;
             StructReader {
                 marker : ::std::marker::PhantomData::<&'a ()>,
                 segment : segment_reader,
+                cap_table: self.cap_table.as_reader(),
                 data : ::std::mem::transmute(self.data),
                 pointers : ::std::mem::transmute(self.pointers),
                 data_size : self.data_size,
@@ -2297,10 +2397,11 @@ impl <'a> StructBuilder<'a> {
 
 
     #[inline]
-    pub fn get_pointer_field(&self, ptr_index : WirePointerCount) -> PointerBuilder<'a> {
+    pub fn get_pointer_field(self, ptr_index : WirePointerCount) -> PointerBuilder<'a> {
         PointerBuilder {
             marker : ::std::marker::PhantomData::<&'a ()>,
             segment : self.segment,
+            cap_table: self.cap_table,
             pointer : unsafe { self.pointers.offset(ptr_index as isize) }
         }
     }
@@ -2311,6 +2412,7 @@ impl <'a> StructBuilder<'a> {
 pub struct ListReader<'a> {
     marker : ::std::marker::PhantomData<&'a ()>,
     segment : *const SegmentReader,
+    cap_table: CapTableReader<'a>,
     ptr : *const u8,
     element_count : ElementCount32,
     step : BitCount32,
@@ -2325,6 +2427,7 @@ impl <'a> ListReader<'a> {
         ListReader {
             marker : ::std::marker::PhantomData::<&'b ()>,
             segment : ::std::ptr::null(),
+            cap_table: CapTableReader::Dummy,
             ptr : ::std::ptr::null(), element_count : 0, step: 0, struct_data_size : 0,
             struct_pointer_count : 0, nesting_limit : 0x7fffffff}
     }
@@ -2346,6 +2449,7 @@ impl <'a> ListReader<'a> {
         StructReader {
             marker : ::std::marker::PhantomData::<&'a ()>,
             segment : self.segment,
+            cap_table: self.cap_table,
             data : struct_data,
             pointers : struct_pointers,
             data_size : self.struct_data_size,
@@ -2359,6 +2463,7 @@ impl <'a> ListReader<'a> {
         PointerReader {
             marker : ::std::marker::PhantomData::<&'a ()>,
             segment : self.segment,
+            cap_table: self.cap_table,
             pointer : unsafe {
                 ::std::mem::transmute(self.ptr.offset((index * self.step / BITS_PER_BYTE as u32) as isize))
             },
@@ -2367,10 +2472,10 @@ impl <'a> ListReader<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
 pub struct ListBuilder<'a> {
-    marker : ::std::marker::PhantomData<&'a ()>,
+    marker : ::std::marker::PhantomData<&'a mut ()>,
     segment : *mut SegmentBuilder,
+    cap_table: CapTableBuilder<'a>,
     ptr : *mut u8,
     element_count : ElementCount32,
     step : BitCount32,
@@ -2383,16 +2488,23 @@ impl <'a> ListBuilder<'a> {
     #[inline]
     pub fn new_default<'b>() -> ListBuilder<'b> {
         ListBuilder {
-            marker : ::std::marker::PhantomData::<&'b ()>,
-            segment : ::std::ptr::null_mut(), ptr : ::std::ptr::null_mut(), element_count : 0,
+            marker : ::std::marker::PhantomData,
+            segment : ::std::ptr::null_mut(),
+            cap_table: CapTableBuilder::Dummy,
+            ptr : ::std::ptr::null_mut(), element_count : 0,
             step : 0, struct_data_size : 0, struct_pointer_count : 0
         }
+    }
+
+    pub fn borrow<'b>(&'b mut self) -> ListBuilder<'b> {
+        ListBuilder { cap_table: self.cap_table.borrow(),
+                      .. *self }
     }
 
     #[inline]
     pub fn len(&self) -> ElementCount32 { self.element_count }
 
-    pub fn get_struct_element(&self, index : ElementCount32) -> StructBuilder<'a> {
+    pub fn get_struct_element(self, index: ElementCount32) -> StructBuilder<'a> {
         let index_bit = index * self.step;
         let struct_data = unsafe{ self.ptr.offset((index_bit / BITS_PER_BYTE as u32) as isize)};
         let struct_pointers = unsafe {
@@ -2402,6 +2514,7 @@ impl <'a> ListBuilder<'a> {
         StructBuilder {
             marker : ::std::marker::PhantomData::<&'a ()>,
             segment : self.segment,
+            cap_table: self.cap_table,
             data : struct_data,
             pointers : struct_pointers,
             data_size : self.struct_data_size,
@@ -2410,10 +2523,11 @@ impl <'a> ListBuilder<'a> {
     }
 
     #[inline]
-    pub fn get_pointer_element(&self, index : ElementCount32) -> PointerBuilder<'a> {
+    pub fn get_pointer_element(self, index : ElementCount32) -> PointerBuilder<'a> {
         PointerBuilder {
             marker : ::std::marker::PhantomData::<&'a ()>,
             segment : self.segment,
+            cap_table: self.cap_table,
             pointer : unsafe {
                 ::std::mem::transmute(self.ptr.offset((index * self.step / BITS_PER_BYTE as u32) as isize))
             }
