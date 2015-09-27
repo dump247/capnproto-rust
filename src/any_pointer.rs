@@ -89,7 +89,8 @@ impl <'a> FromPointerReader<'a> for Reader<'a> {
 }
 
 impl <'a> ::traits::SetPointerBuilder<Builder<'a>> for Reader<'a> {
-    fn set_pointer_builder<'b>(pointer: ::private::layout::PointerBuilder<'b>, value: Reader<'a>) -> Result<()> {
+    fn set_pointer_builder<'b>(mut pointer: ::private::layout::PointerBuilder<'b>,
+                               value: Reader<'a>) -> Result<()> {
         pointer.copy_from(value.reader)
     }
 }
@@ -121,7 +122,7 @@ impl <'a> Builder<'a> {
     }
 
     // XXX value should be a user client.
-    pub fn set_as_capability(&self, value : Box<ClientHook>) {
+    pub fn set_as_capability(&mut self, value : Box<ClientHook>) {
         self.builder.set_capability(value);
     }
 
