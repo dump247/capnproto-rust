@@ -2001,6 +2001,10 @@ impl <'a> PointerReader<'a> {
             nesting_limit : 0x7fffffff }
     }
 
+    pub fn imbue(&self, cap_table: CapTableReader) -> PointerReader<'a> {
+        PointerReader { cap_table: cap_table, ..*self }
+    }
+
     pub fn is_null(&self) -> bool {
         self.pointer.is_null() || unsafe { (*self.pointer).is_null() }
     }
@@ -2067,6 +2071,10 @@ impl <'a> PointerBuilder<'a> {
             marker : ::std::marker::PhantomData::<&'a ()>,
             cap_table: CapTableBuilder::Dummy,
             segment : segment, pointer : unsafe { ::std::mem::transmute(location) }}
+    }
+
+    pub fn imbue(&self, cap_table: CapTableBuilder) -> PointerBuilder<'a> {
+        PointerBuilder { cap_table: cap_table, ..*self }
     }
 
     pub fn is_null(&self) -> bool {
@@ -2247,6 +2255,10 @@ impl <'a> StructReader<'a>  {
             nesting_limit : 0x7fffffff}
     }
 
+    pub fn imbue(&self, cap_table: CapTableReader) -> StructReader<'a> {
+        StructReader { cap_table: cap_table, ..*self }
+    }
+
     pub fn get_data_section_size(&self) -> BitCount32 { self.data_size }
 
     pub fn get_pointer_section_size(&self) -> WirePointerCount16 { self.pointer_count }
@@ -2357,6 +2369,10 @@ impl <'a> StructBuilder<'a> {
         }
     }
 
+    pub fn imbue(&self, cap_table: CapTableBuilder) -> StructBuilder<'a> {
+        StructBuilder { cap_table: cap_table, ..*self }
+    }
+
     #[inline]
     pub fn set_data_field<T:Endian>(&self, offset : ElementCount, value : T) {
         unsafe {
@@ -2458,6 +2474,10 @@ impl <'a> ListReader<'a> {
             struct_pointer_count : 0, nesting_limit : 0x7fffffff}
     }
 
+    pub fn imbue(&self, cap_table: CapTableReader) -> ListReader<'a> {
+        ListReader { cap_table: cap_table, ..*self }
+    }
+
     #[inline]
     pub fn len(&self) -> ElementCount32 { self.element_count }
 
@@ -2521,6 +2541,10 @@ impl <'a> ListBuilder<'a> {
             ptr : ::std::ptr::null_mut(), element_count : 0,
             step : 0, struct_data_size : 0, struct_pointer_count : 0
         }
+    }
+
+    pub fn imbue(&self, cap_table: CapTableBuilder) -> ListBuilder<'a> {
+        ListBuilder { cap_table: cap_table, ..*self }
     }
 
     #[inline]
