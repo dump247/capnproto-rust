@@ -33,6 +33,22 @@ pub struct RemotePromise<Results> where Results: ::traits::Pipelined {
     pub pipeline: Results::Pipeline,
 }
 
+pub struct ReaderCapTable {
+    hooks: Vec<Option<Box<ClientHook>>>
+}
+
+impl ReaderCapTable {
+    pub fn new() -> ReaderCapTable {
+        ReaderCapTable { hooks: Vec::new() }
+    }
+
+    // Do I need an Imbueable trait?
+    pub fn imbue<'a, T>(&'a self) -> T {
+        &self.hooks;
+        unimplemented!();
+    }
+}
+
 pub struct Request<Params, Results> {
     pub marker: ::std::marker::PhantomData<(Params, Results)>,
     pub hook: Box<RequestHook>
