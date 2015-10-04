@@ -20,7 +20,7 @@
 // THE SOFTWARE.
 
 use {Word, Result};
-use private::layout::{StructReader, StructBuilder, StructSize, PointerBuilder, PointerReader};
+use private::layout::{CapTable, StructReader, StructBuilder, StructSize, PointerBuilder, PointerReader};
 
 pub trait FromStructReader<'a> {
     fn new(reader : StructReader<'a>) -> Self;
@@ -78,6 +78,14 @@ pub trait FromPointerBuilderRefDefault<'a> {
 
 pub trait SetPointerBuilder<To> {
     fn set_pointer_builder<'a>(PointerBuilder<'a>, Self) -> Result<()>;
+}
+
+pub trait Imbue<'a> {
+    fn imbue(&mut self, &'a CapTable);
+}
+
+pub trait ImbueMut<'a> {
+    fn imbue_mut(&mut self, &'a mut CapTable);
 }
 
 pub trait HasTypeId {

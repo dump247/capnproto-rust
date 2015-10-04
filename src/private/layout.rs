@@ -1880,6 +1880,8 @@ mod wire_helpers {
 static ZERO : u64 = 0;
 fn zero_pointer() -> *const WirePointer { unsafe {::std::mem::transmute(&ZERO)}}
 
+pub type CapTable = Vec<Option<Box<ClientHook>>>;
+
 #[derive(Copy, Clone)]
 pub enum CapTableReader {
     Dummy,
@@ -2001,8 +2003,8 @@ impl <'a> PointerReader<'a> {
             nesting_limit : 0x7fffffff }
     }
 
-    pub fn imbue(&self, cap_table: CapTableReader) -> PointerReader<'a> {
-        PointerReader { cap_table: cap_table, ..*self }
+    pub fn imbue(&mut self, cap_table: CapTableReader) {
+        self.cap_table = cap_table;
     }
 
     pub fn is_null(&self) -> bool {
@@ -2073,8 +2075,8 @@ impl <'a> PointerBuilder<'a> {
             segment : segment, pointer : unsafe { ::std::mem::transmute(location) }}
     }
 
-    pub fn imbue(&self, cap_table: CapTableBuilder) -> PointerBuilder<'a> {
-        PointerBuilder { cap_table: cap_table, ..*self }
+    pub fn imbue(&mut self, cap_table: CapTableBuilder) {
+        self.cap_table = cap_table;
     }
 
     pub fn is_null(&self) -> bool {
@@ -2255,8 +2257,8 @@ impl <'a> StructReader<'a>  {
             nesting_limit : 0x7fffffff}
     }
 
-    pub fn imbue(&self, cap_table: CapTableReader) -> StructReader<'a> {
-        StructReader { cap_table: cap_table, ..*self }
+    pub fn imbue(&mut self, cap_table: CapTableReader) {
+        self.cap_table = cap_table
     }
 
     pub fn get_data_section_size(&self) -> BitCount32 { self.data_size }
@@ -2369,8 +2371,8 @@ impl <'a> StructBuilder<'a> {
         }
     }
 
-    pub fn imbue(&self, cap_table: CapTableBuilder) -> StructBuilder<'a> {
-        StructBuilder { cap_table: cap_table, ..*self }
+    pub fn imbue(&mut self, cap_table: CapTableBuilder) {
+        self.cap_table = cap_table
     }
 
     #[inline]
@@ -2474,8 +2476,8 @@ impl <'a> ListReader<'a> {
             struct_pointer_count : 0, nesting_limit : 0x7fffffff}
     }
 
-    pub fn imbue(&self, cap_table: CapTableReader) -> ListReader<'a> {
-        ListReader { cap_table: cap_table, ..*self }
+    pub fn imbue(&mut self, cap_table: CapTableReader) {
+        self.cap_table = cap_table
     }
 
     #[inline]
@@ -2543,8 +2545,8 @@ impl <'a> ListBuilder<'a> {
         }
     }
 
-    pub fn imbue(&self, cap_table: CapTableBuilder) -> ListBuilder<'a> {
-        ListBuilder { cap_table: cap_table, ..*self }
+    pub fn imbue(&mut self, cap_table: CapTableBuilder) {
+        self.cap_table = cap_table
     }
 
     #[inline]
