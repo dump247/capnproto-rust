@@ -55,7 +55,7 @@ pub trait Owned<'a> {
 }
 
 pub trait OwnedStruct<'a> {
-    type Reader: FromStructReader<'a>;
+    type Reader: FromStructReader<'a> + SetPointerBuilder<Self::Builder>;
     type Builder: FromStructBuilder<'a> + HasStructSize;
 }
 
