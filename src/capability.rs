@@ -24,7 +24,7 @@
 //! Roughly corresponds to capability.h in the C++ implementation.
 
 use any_pointer;
-use private::capability::{CallContextHook, ClientHook, RequestHook, ResponseHook};
+use private::capability::{ClientHook, ParamsHook, RequestHook, ResponseHook, ResultsHook};
 
 
 pub struct RemotePromise<Results> where Results: ::traits::Pipelined {
@@ -73,25 +73,29 @@ where Results: ::traits::Pipelined,
     }
 }
 
-pub struct CallContext<Params, Results> {
-    pub marker: ::std::marker::PhantomData<(Params, Results)>,
-    pub hook: Box<CallContextHook>,
+pub struct Params<T> {
+    pub marker: ::std::marker::PhantomData<T>,
+    pub hook: Box<ParamsHook>,
 }
 
-impl <Params, Results> CallContext<Params, Results> {
-    pub fn fail(self, message: String) {self.hook.fail(message);}
-    pub fn done(self) {self.hook.done();}
+pub struct Results<T> {
+    pub marker: ::std::marker::PhantomData<T>,
+    pub hook: Box<ResultsHook>,
 }
 
-impl <Params, Results> CallContext<Params, Results> {
-    pub fn get<'a>(&'a mut self) -> (<Params as ::traits::Owned<'a>>::Reader,
-                                     <Results as ::traits::Owned<'a>>::Builder)
-        where Params: ::traits::Owned<'a>, Results: ::traits::Owned<'a>
+impl <T> Results<T> {
+    pub fn fail(self, message: String) { self.hook.fail(message); }
+    pub fn unimplemented(self) { self.hook.unimplemented(); }
+    pub fn disconnected(self) { self.hook.disconnected(); }
+    pub fn overloaded(self) { self.hook.overloaded(); }
+
+    pub fn get<'a>(&'a mut self) -> <T as ::traits::Owned<'a>>::Builder
+        where T: ::traits::Owned<'a>
     {
-        let (any_params, any_results) = self.hook.get();
-        (any_params.get_as().unwrap(), any_results.get_as().unwrap())
+        self.hook.get().get_as().unwrap()
     }
 }
+
 
 pub trait FromTypelessPipeline {
     fn new (typeless : any_pointer::Pipeline) -> Self;
@@ -101,7 +105,9 @@ pub trait FromClientHook {
     fn new(Box<ClientHook>) -> Self;
 }
 
+#[cfg(feature = "rpc")]
 pub trait Server {
     fn dispatch_call(&mut self, interface_id : u64, method_id : u16,
-                     context : CallContext<any_pointer::Reader, any_pointer::Builder>);
+                     params: Params<any_pointer::Owned>,
+                     results: Results<any_pointer::Owned>) -> ::gj::Promise<(), ::Error>;
 }
