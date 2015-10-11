@@ -105,9 +105,29 @@ pub trait FromClientHook {
     fn new(Box<ClientHook>) -> Self;
 }
 
+pub struct Client {
+    pub hook: Box<ClientHook>
+}
+
+impl Client {
+    pub fn new(hook: Box<ClientHook>) -> Client {
+        Client { hook : hook }
+    }
+
+    pub fn new_call<Params, Results>(&self,
+                                     interface_id : u64,
+                                     method_id : u16,
+                                     size_hint : Option<::MessageSize>)
+                                     -> Request<Params, Results> {
+        let typeless = self.hook.new_call(interface_id, method_id, size_hint);
+        Request { hook : typeless.hook, marker : ::std::marker::PhantomData }
+    }
+}
+
 #[cfg(feature = "rpc")]
 pub trait Server {
-    fn dispatch_call(&mut self, interface_id : u64, method_id : u16,
+    fn dispatch_call(&mut self, interface_id: u64, method_id: u16,
                      params: Params<any_pointer::Owned>,
                      results: Results<any_pointer::Owned>) -> ::gj::Promise<(), ::Error>;
 }
+

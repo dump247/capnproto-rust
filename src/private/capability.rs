@@ -49,26 +49,7 @@ pub trait ClientHook: ::std::any::Any {
 
 #[cfg(feature = "rpc")]
 pub trait ServerHook: 'static {
-    fn new_client(server: Box<::capability::Server>) -> Client;
-}
-
-pub struct Client {
-    pub hook : Box<ClientHook>
-}
-
-impl Client {
-    pub fn new(hook : Box<ClientHook>) -> Client {
-        Client { hook : hook }
-    }
-
-    pub fn new_call<Params, Results>(&self,
-                                     interface_id : u64,
-                                     method_id : u16,
-                                     size_hint : Option<MessageSize>)
-                                     -> Request<Params, Results> {
-        let typeless = self.hook.new_call(interface_id, method_id, size_hint);
-        Request { hook : typeless.hook, marker : ::std::marker::PhantomData }
-    }
+    fn new_client(server: Box<::capability::Server>) -> ::capability::Client;
 }
 
 pub trait ResultsHook {
