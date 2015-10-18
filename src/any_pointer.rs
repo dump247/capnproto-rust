@@ -68,7 +68,7 @@ impl <'a> Reader<'a> {
 
     //# Used by RPC system to implement pipelining. Applications
     //# generally shouldn't use this directly.
-    pub fn get_pipelined_cap(&self, ops : &[PipelineOp]) -> Result<Box<ClientHook>> {
+    pub fn get_pipelined_cap(&self, ops : &[PipelineOp]) -> Result<Rc<RefCell<Box<ClientHook>>>> {
         let mut pointer = self.reader;
 
         for op in ops.iter() {
@@ -124,7 +124,7 @@ impl <'a> Builder<'a> {
     }
 
     // XXX value should be a user client.
-    pub fn set_as_capability(&mut self, value : Box<ClientHook>) {
+    pub fn set_as_capability(&mut self, value: Rc<RefCell<Box<ClientHook>>>) {
         self.builder.set_capability(value);
     }
 

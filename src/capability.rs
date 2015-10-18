@@ -25,7 +25,8 @@
 
 use any_pointer;
 use private::capability::{ClientHook, ParamsHook, RequestHook, ResponseHook, ResultsHook};
-
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct RemotePromise<Results> where Results: ::traits::Pipelined {
     #[cfg(feature = "rpc")]
@@ -34,7 +35,7 @@ pub struct RemotePromise<Results> where Results: ::traits::Pipelined {
 }
 
 pub struct ReaderCapTable {
-    hooks: Vec<Option<Box<ClientHook>>>
+    hooks: Vec<Option<Rc<RefCell<Box<ClientHook>>>>>
 }
 
 impl ReaderCapTable {
@@ -98,19 +99,19 @@ impl <T> Results<T> {
 
 
 pub trait FromTypelessPipeline {
-    fn new (typeless : any_pointer::Pipeline) -> Self;
+    fn new (typeless: any_pointer::Pipeline) -> Self;
 }
 
 pub trait FromClientHook {
-    fn new(Box<ClientHook>) -> Self;
+    fn new(Rc<RefCell<Box<ClientHook>>>) -> Self;
 }
 
 pub struct Client {
-    pub hook: Box<ClientHook>
+    pub hook: Rc<RefCell<Box<ClientHook>>>
 }
 
 impl Client {
-    pub fn new(hook: Box<ClientHook>) -> Client {
+    pub fn new(hook: Rc<RefCell<Box<ClientHook>>>) -> Client {
         Client { hook : hook }
     }
 
@@ -119,8 +120,8 @@ impl Client {
                                      method_id : u16,
                                      size_hint : Option<::MessageSize>)
                                      -> Request<Params, Results> {
-        let typeless = self.hook.new_call(interface_id, method_id, size_hint);
-        Request { hook : typeless.hook, marker : ::std::marker::PhantomData }
+        let typeless = self.hook.borrow().new_call(interface_id, method_id, size_hint);
+        Request { hook: typeless.hook, marker: ::std::marker::PhantomData }
     }
 }
 

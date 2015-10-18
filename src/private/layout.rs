@@ -28,6 +28,8 @@ use private::mask::*;
 use private::units::*;
 use private::zero;
 use {MessageSize, Result, Word};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub use self::ElementSize::{Void, Bit, Byte, TwoBytes, FourBytes, EightBytes, Pointer, InlineComposite};
 
@@ -331,6 +333,8 @@ mod wire_helpers {
     use data;
     use text;
     use {Error, MessageSize, Result, Word};
+    use std::rc::Rc;
+    use std::cell::RefCell;
 
     pub struct SegmentAnd<T> {
         #[allow(dead_code)]
@@ -1365,7 +1369,7 @@ mod wire_helpers {
     pub unsafe fn set_capability_pointer(_segment : *mut SegmentBuilder,
                                          mut cap_table: CapTableBuilder,
                                          reff : *mut WirePointer,
-                                         cap : Box<ClientHook>) {
+                                         cap : Rc<RefCell<Box<ClientHook>>>) {
         // TODO if ref is null, zero object.
         (*reff).set_cap(cap_table.inject_cap(cap) as u32);
     }
@@ -1627,7 +1631,7 @@ mod wire_helpers {
     pub unsafe fn read_capability_pointer(_segment: *const SegmentReader,
                                           cap_table: CapTableReader,
                                           reff: *const WirePointer,
-                                          _nesting_limit : i32) -> Result<Box<ClientHook>> {
+                                          _nesting_limit : i32) -> Result<Rc<RefCell<Box<ClientHook>>>> {
         if (*reff).is_null() {
             panic!("broken cap factory is unimplemented");
         } else if !(*reff).is_capability() {
@@ -1880,25 +1884,25 @@ mod wire_helpers {
 static ZERO : u64 = 0;
 fn zero_pointer() -> *const WirePointer { unsafe {::std::mem::transmute(&ZERO)}}
 
-pub type CapTable = Vec<Option<Box<ClientHook>>>;
+pub type CapTable = Vec<Option<Rc<RefCell<Box<ClientHook>>>>>;
 
 #[derive(Copy, Clone)]
 pub enum CapTableReader {
     Dummy,
-    Plain(*const Vec<Option<Box<ClientHook>>>),
+    Plain(*const Vec<Option<Rc<RefCell<Box<ClientHook>>>>>),
 }
 
 impl CapTableReader {
-    pub fn extract_cap(&self, index: usize) -> Option<Box<ClientHook>> {
+    pub fn extract_cap(&self, index: usize) -> Option<Rc<RefCell<Box<ClientHook>>>> {
         match self {
             &CapTableReader::Dummy => None,
             &CapTableReader::Plain(hooks) => {
-                let hooks: &Vec<Option<Box<ClientHook>>> = unsafe { &*hooks };
+                let hooks: &Vec<Option<Rc<RefCell<Box<ClientHook>>>>> = unsafe { &*hooks };
                 if index < hooks.len() { None }
                 else {
                     match hooks[index] {
                         None => None,
-                        Some(ref hook) => Some(hook.copy())
+                        Some(ref hook) => Some(hook.clone())
                     }
                 }
             }
@@ -1909,7 +1913,7 @@ impl CapTableReader {
 #[derive(Copy, Clone)]
 pub enum CapTableBuilder {
     Dummy,
-    Plain(*mut Vec<Option<Box<ClientHook>>>),
+    Plain(*mut Vec<Option<Rc<RefCell<Box<ClientHook>>>>>),
 }
 
 impl CapTableBuilder {
@@ -1920,27 +1924,27 @@ impl CapTableBuilder {
         }
     }
 
-    pub fn extract_cap(&self, index: usize) -> Option<Box<ClientHook>> {
+    pub fn extract_cap(&self, index: usize) -> Option<Rc<RefCell<Box<ClientHook>>>> {
         match self {
             &CapTableBuilder::Dummy => None,
             &CapTableBuilder::Plain(hooks) => {
-                let hooks: &Vec<Option<Box<ClientHook>>> = unsafe { &*hooks };
+                let hooks: &Vec<Option<Rc<RefCell<Box<ClientHook>>>>> = unsafe { &*hooks };
                 if index >= hooks.len() { None }
                 else {
                     match hooks[index] {
                         None => None,
-                        Some(ref hook) => Some(hook.copy())
+                        Some(ref hook) => Some(hook.clone())
                     }
                 }
             }
         }
     }
 
-    pub fn inject_cap(&mut self, cap: Box<ClientHook>) -> usize {
+    pub fn inject_cap(&mut self, cap: Rc<RefCell<Box<ClientHook>>>) -> usize {
         match self {
             &mut CapTableBuilder::Dummy => 0, // XXX maybe we shouldn't swallow this.
             &mut CapTableBuilder::Plain(hooks) => {
-                let hooks: &mut Vec<Option<Box<ClientHook>>> = unsafe { &mut *hooks };
+                let hooks: &mut Vec<Option<Rc<RefCell<Box<ClientHook>>>>> = unsafe { &mut *hooks };
                 hooks.push(Some(cap));
                 hooks.len()
             }
@@ -1951,7 +1955,7 @@ impl CapTableBuilder {
         match self {
             &mut CapTableBuilder::Dummy => (), // XXX maybe we shouldn't swallow this.
             &mut CapTableBuilder::Plain(hooks) => {
-                let hooks: &mut Vec<Option<Box<ClientHook>>> = unsafe { &mut *hooks };
+                let hooks: &mut Vec<Option<Rc<RefCell<Box<ClientHook>>>>> = unsafe { &mut *hooks };
                 if index < hooks.len() { hooks[index] = None; }
             }
         }
@@ -2043,7 +2047,7 @@ impl <'a> PointerReader<'a> {
         }
     }
 
-    pub fn get_capability(&self) -> Result<Box<ClientHook>> {
+    pub fn get_capability(&self) -> Result<Rc<RefCell<Box<ClientHook>>>> {
         let reff : *const WirePointer = if self.pointer.is_null() { zero_pointer() } else { self.pointer };
         unsafe {
             wire_helpers::read_capability_pointer(self.segment, self.cap_table, reff, self.nesting_limit)
@@ -2123,7 +2127,7 @@ impl <'a> PointerBuilder<'a> {
         }
     }
 
-    pub fn get_capability(&self) -> Result<Box<ClientHook>> {
+    pub fn get_capability(&self) -> Result<Rc<RefCell<Box<ClientHook>>>> {
         unsafe {
             wire_helpers::read_capability_pointer(
                 &(*self.segment).reader, self.cap_table.as_reader(), self.pointer, ::std::i32::MAX)
@@ -2189,7 +2193,7 @@ impl <'a> PointerBuilder<'a> {
         }
     }
 
-    pub fn set_capability(&self, cap : Box<ClientHook>) {
+    pub fn set_capability(&self, cap: Rc<RefCell<Box<ClientHook>>>) {
         unsafe {
             wire_helpers::set_capability_pointer(self.segment, self.cap_table, self.pointer, cap);
         }
