@@ -26,7 +26,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub trait ResponseHook: {
-    fn get<'a>(&'a self) -> any_pointer::Reader<'a>;
+    fn get<'a>(&'a self) -> ::Result<any_pointer::Reader<'a>>;
 }
 
 pub trait RequestHook {
