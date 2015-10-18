@@ -22,6 +22,8 @@
 use any_pointer;
 use MessageSize;
 use capability::{Params, Request, RemotePromise, Results};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub trait ResponseHook: {
     fn get<'a>(&'a self) -> any_pointer::Reader<'a>;
@@ -74,7 +76,7 @@ pub fn internal_get_typed_results<T>(typeless: Results<any_pointer::Owned>) -> R
 }
 
 pub trait PipelineHook {
-    fn get_pipelined_cap(&self, ops: Vec<PipelineOp>) -> Box<ClientHook>;
+    fn get_pipelined_cap(&self, ops: Vec<PipelineOp>) -> Rc<RefCell<Box<ClientHook>>>;
 }
 
 #[derive(Clone, Copy)]

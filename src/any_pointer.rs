@@ -171,7 +171,7 @@ impl Pipeline {
         Pipeline { hook : self.hook.clone(), ops : new_ops }
     }
 
-    pub fn as_cap(&self) -> Box<ClientHook> {
+    pub fn as_cap(&self) -> Rc<RefCell<Box<ClientHook>>> {
         self.hook.borrow().get_pipelined_cap(self.ops.clone())
     }
 }
