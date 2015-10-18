@@ -35,11 +35,10 @@ pub trait RequestHook {
 }
 
 pub trait ClientHook {
-    fn copy(&self) -> Box<ClientHook>;
     fn new_call(&self,
-                interface_id : u64,
-                method_id : u16,
-                size_hint : Option<MessageSize>)
+                interface_id: u64,
+                method_id: u16,
+                size_hint: Option<MessageSize>)
                 -> Request<any_pointer::Owned, any_pointer::Owned>;
 
     fn call(&self, interface_id: u64, method_id: u16,
