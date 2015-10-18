@@ -26,6 +26,8 @@ use private::capability::{ClientHook, PipelineHook, PipelineOp};
 use private::layout::{PointerReader, PointerBuilder};
 use traits::{FromPointerReader, FromPointerBuilder, SetPointerBuilder};
 use Result;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Copy, Clone)]
 pub struct Owned(());
@@ -147,17 +149,17 @@ impl <'a> FromPointerBuilder<'a> for Builder<'a> {
 }
 
 pub struct Pipeline {
-    hook: Box<PipelineHook>,
+    hook: Rc<RefCell<Box<PipelineHook>>>,
     ops: Vec<PipelineOp>,
 }
 
 impl Pipeline {
     pub fn new(hook: Box<PipelineHook>) -> Pipeline {
-        Pipeline { hook : hook, ops : Vec::new() }
+        Pipeline { hook: Rc::new(RefCell::new(hook)), ops : Vec::new() }
     }
 
     pub fn noop(&self) -> Pipeline {
-        Pipeline { hook : self.hook.copy(), ops : self.ops.clone() }
+        Pipeline { hook : self.hook.clone(), ops : self.ops.clone() }
     }
 
     pub fn get_pointer_field(&self, pointer_index: u16) -> Pipeline {
@@ -166,11 +168,11 @@ impl Pipeline {
             new_ops.push(op)
         }
         new_ops.push(PipelineOp::GetPointerField(pointer_index));
-        Pipeline { hook : self.hook.copy(), ops : new_ops }
+        Pipeline { hook : self.hook.clone(), ops : new_ops }
     }
 
     pub fn as_cap(&self) -> Box<ClientHook> {
-        self.hook.get_pipelined_cap(self.ops.clone())
+        self.hook.borrow().get_pipelined_cap(self.ops.clone())
     }
 }
 

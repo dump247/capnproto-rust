@@ -23,8 +23,8 @@ use any_pointer;
 use MessageSize;
 use capability::{Params, Request, RemotePromise, Results};
 
-pub trait ResponseHook: ::std::any::Any {
-    fn get<'a>(&'a mut self) -> any_pointer::Reader<'a>;
+pub trait ResponseHook: {
+    fn get<'a>(&'a self) -> any_pointer::Reader<'a>;
 }
 
 pub trait RequestHook {
@@ -32,7 +32,7 @@ pub trait RequestHook {
     fn send<'a>(self : Box<Self>) -> RemotePromise<any_pointer::Owned>;
 }
 
-pub trait ClientHook: ::std::any::Any {
+pub trait ClientHook {
     fn copy(&self) -> Box<ClientHook>;
     fn new_call(&self,
                 interface_id : u64,
@@ -66,16 +66,15 @@ pub trait ParamsHook {
 
 // Where should this live?
 pub fn internal_get_typed_params<T>(typeless: Params<any_pointer::Owned>) -> Params<T> {
-    Params { hook : typeless.hook, marker : ::std::marker::PhantomData }
+    Params { hook: typeless.hook, marker: ::std::marker::PhantomData }
 }
 
 pub fn internal_get_typed_results<T>(typeless: Results<any_pointer::Owned>) -> Results<T> {
-    Results { hook : typeless.hook, marker : ::std::marker::PhantomData }
+    Results { hook: typeless.hook, marker: ::std::marker::PhantomData }
 }
 
 pub trait PipelineHook {
-    fn copy(&self) -> Box<PipelineHook>;
-    fn get_pipelined_cap(&self, ops : Vec<PipelineOp>) -> Box<ClientHook>;
+    fn get_pipelined_cap(&self, ops: Vec<PipelineOp>) -> Box<ClientHook>;
 }
 
 #[derive(Clone, Copy)]
